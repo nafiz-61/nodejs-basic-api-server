@@ -3,7 +3,18 @@
 const { log } = require("console");
 const http = require("http");
 const url = require("url");
+const fs = require("fs");
+const event = require("events");
+const path = require("path");
+const eventEmitter = new event();
 const myUrl = "https://dummyjson.com/test";
+
+eventEmitter.on("todos", (callback) => {
+  const data = fetch("https://jsonplaceholder.typicode.com/todos").then((res) =>
+    res.json()
+  );
+  callback(data);
+});
 
 const server = http.createServer((req, res) => {
   const { pathname } = url.parse(req.url);
@@ -108,23 +119,32 @@ const server = http.createServer((req, res) => {
     );
   }
   if (pathname == "/todos") {
-    res.writeHead(200, { "content-type": "text/plain" });
-    res.end(
-      JSON.stringify([
-        {
-          userId: 1,
-          id: 2,
-          title: "quis ut nam facilis et officia qui",
-          completed: false,
-        },
-        {
-          userId: 1,
-          id: 3,
-          title: "fugiat veniam minus",
-          completed: false,
-        },
-      ])
-    );
+  
+
+    // fire the event
+    eventEmitter.emit("todos", (response) => {
+      response.then((data) => {
+        const targetpath = path.join(
+          __dirname,
+          `${pathname.replace("/", "")}.txt`
+        );
+
+        fs.writeFile(targetpath, JSON.stringify(data), (err) => {
+          if (err) {
+            log("Error writing file?", err);
+          }
+          // fs
+          fs.readFile(targetpath, "utf-8", (err, data) => {
+            if (err) {
+              log("Error reading file:", err);
+            } else {
+                res.writeHead(200, { "content-type": "text/plain" });
+              res.end(data);
+            }
+          });
+        });
+      });
+    });
   } else {
     res.end("Not Found");
   }
